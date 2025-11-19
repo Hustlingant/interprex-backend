@@ -54,6 +54,13 @@ app.post("/create-order", async (req, res) => {
       user_id,
     } = req.body;
 
+    // 🔍 Log what we received from frontend
+    console.log("CREATE ORDER BODY:", {
+      amount,
+      course_slug,
+      user_id,
+    });
+
     if (!amount || !course_slug || !user_id) {
       return res
         .status(400)
@@ -72,7 +79,14 @@ app.post("/create-order", async (req, res) => {
     };
 
     const order = await razorpay.orders.create(options);
-    console.log("Order created:", order.id, "user:", user_id, "course:", course_slug);
+    console.log(
+      "Order created:",
+      order.id,
+      "user:",
+      user_id,
+      "course:",
+      course_slug
+    );
     res.json(order);
   } catch (err) {
     console.error("Create order error:", err);
@@ -129,6 +143,13 @@ app.post("/verify-payment", async (req, res) => {
     const course_slug = order.notes?.course_slug;
     const user_id = order.notes?.user_id;
 
+    // 🔍 Log exactly what we got from Razorpay
+    console.log("ORDER NOTES:", {
+      notes: order.notes,
+      course_slug,
+      user_id,
+    });
+
     if (!course_slug || !user_id) {
       console.error("Missing course_slug or user_id in order notes");
       return res
@@ -139,15 +160,23 @@ app.post("/verify-payment", async (req, res) => {
     // 3) Get course_id from slug
     const { data: course, error: courseError } = await supabase
       .from("courses")
-      .select("id")
+      .select("id, slug")
       .eq("slug", course_slug)
       .single();
 
+    console.log("COURSE LOOKUP RESULT:", {
+      course_slug,
+      course,
+      courseError,
+    });
+
     if (courseError || !course) {
       console.error("Course not found:", courseError);
-      return res
-        .status(500)
-        .json({ success: false, message: "Course not found" });
+      return res.status(500).json({
+        success: false,
+        message: "Course not found",
+        slug_received: course_slug,
+      });
     }
 
     // 4) Insert into user_courses (grant access)
